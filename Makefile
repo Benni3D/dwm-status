@@ -1,5 +1,5 @@
 CC ?= cc
-CFLAGS += -O3 -Wall -Wextra -pthread
+CFLAGS += -O3 -Wall -Wextra -pthread -D_XOPEN_SOURCE=700 -std=c99
 
 #CFLAGS += -I/opt/cuda/include -DHAVE_NVIDIA_GPU=1
 #LIBS += -L/opt/cuda/lib64 -lnvidia-ml
