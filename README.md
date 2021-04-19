@@ -1,4 +1,5 @@
 # DWM status
+![Picture](dwm-status.png "DWM Status Bar")<br>
 A custom status utility for the dynamic window manager.
 
 ## Configuration
