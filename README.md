@@ -2,6 +2,11 @@
 ![Picture](dwm-status.png "DWM Status Bar")<br>
 A custom status utility for the dynamic window manager.
 
+## Dependencies
+* dwm
+* xsetroot
+* NVIDIA Management Library (optional)
+
 ## Configuration
 Configuring some parameters will be supported in the future through the classic config.h.
 
