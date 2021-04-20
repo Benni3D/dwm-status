@@ -8,7 +8,7 @@ A custom status utility for the dynamic window manager.
 * NVIDIA Management Library (optional)
 
 ## Configuration
-Configuring some parameters will be supported in the future through the classic config.h.
+Configuring some parameters is supported through the classic config.h.
 
 ## Installation
 Installation is simple, just type ```sudo make install```.
