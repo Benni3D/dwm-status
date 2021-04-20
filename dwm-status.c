@@ -18,7 +18,8 @@
 #include <nvml.h>
 #endif
 
-#define BAT "BAT0"
+#include "config.h"
+
 static const char* prog_name;
 static int volume;
 static const char* volume_sym;
@@ -34,7 +35,7 @@ static void error(const char* msg, ...) {
    va_end(ap);
 }
 
-static void xsetroot(const char* s) {
+static bool xsetroot(const char* s) {
    pid_t pid = fork();
    if (pid < 0) {
       error("failed to fork() for xsetroot");
@@ -49,7 +50,9 @@ static void xsetroot(const char* s) {
       waitpid(pid, &wstatus, 0);
       if (!WIFEXITED(wstatus) || wstatus != 0) {
          error("xsetroot failed");
+         return false;
       }
+      return true;
    }
 }
 
@@ -112,7 +115,7 @@ static int vol_perc(void) {
 }
 static int bat_perc(void) {
    int perc;
-   if (pscanf("/sys/class/power_supply/" BAT "/capacity", "%d\n", &perc) != 1) return -1;
+   if (pscanf("/sys/class/power_supply/" BAT_NAME "/capacity", "%d\n", &perc) != 1) return -1;
    return perc;
 }
 static const char* vol_sym(int volume) {
@@ -131,7 +134,7 @@ static const char* vol_sym(int volume) {
 }
 static const char* bat_sym(int bat) {
    char status[32];
-   if (pscanf("/sys/class/power_supply/" BAT "/status", "%s\n", &status) == 1
+   if (pscanf("/sys/class/power_supply/" BAT_NAME "/status", "%s\n", &status) == 1
          && strcmp(status, "Charging") == 0) return "\uf5e7";
 
    if (bat < 20) return "\uf244";
@@ -159,7 +162,7 @@ static const char* net_sym(void) {
 }
 static void* update_ns(void* ns) {
    while (1) {
-      sleep(20);
+      sleep(network_delay);
       *(const char**)ns = net_sym();
    }
    return NULL;
@@ -218,8 +221,8 @@ static bool nvidia_gpu_usage(int* gpu, int* mem) {
 
 int main(int argc, char* argv[]) {
    (void)argc;
-   const float spt = 1.0f / 3.0f;
-   const struct timespec sleep_time = { 0, (long)((long double)spt * 1000000000.0l) };
+   const struct timespec sleep_time = { 0, (long)((long double)refresh_delay * 1000000000.0l) };
+   unsigned num_fails = 0;
    char buffer[256];
    signal(SIGUSR1, signal_handler);
    signal(SIGHUP,  signal_handler);
@@ -250,9 +253,13 @@ int main(int argc, char* argv[]) {
 #endif
       n = (size_t)snprintf(buffer, sizeof(buffer), "[CPU \uf2db %d%%] [RAM \uf538 %d%%] [VOL %s %d%%] [BAT %s %d%%] %s ",
             cpu_perc(), ram_perc(), volume_sym, volume, bat_sym(bat), bat, ns);
-      strftime(buffer + n, sizeof(buffer) - n, " %a, %F %T", localtime(&now));
+      strftime(buffer + n, sizeof(buffer) - n, date_format, localtime(&now));
 
-      xsetroot(buffer);
+      if (xsetroot(buffer)) num_fails = 0;
+      else {
+         if (num_fails >= max_fails) return 1;
+         else ++num_fails;
+      }
       nanosleep(&sleep_time, NULL);
    }
 }

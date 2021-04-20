@@ -8,7 +8,7 @@ PROG=dwm-status
 
 all: $(PROG)
 
-$(PROG): $(PROG).c
+$(PROG): $(PROG).c config.h
 	$(CC) -o $@ $< $(CFLAGS) $(LIBS)
 
 clean:
