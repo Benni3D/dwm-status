@@ -10,10 +10,12 @@ A custom status utility for the dynamic window manager.
 ## Configuration
 Configuring some parameters is supported through the classic config.h.
 
+
 ## Installation
-Installation is simple, just type ```sudo make install```.
+Build dwm-status with ```make```.
+Installation is also simple, just type ```sudo make install```.
 
 ### NVIDIA GPU support
-If you have an NVIDIA graphics card, you might want to uncoment lines 4 and 5 of the Makefile.<br>
+If you want NVIDIA GPU support you have to build with ```make NVIDIA_GPU=1``` instead.
 This feature is currently only supported with the proprietary NVIDIA driver.<br>
 It may be required to change the -I and -L options in CFLAGS and LIBS respectively to the corresponding directory where CUDA is installed on your system.
