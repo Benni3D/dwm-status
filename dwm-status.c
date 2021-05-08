@@ -167,12 +167,22 @@ static void* update_ns(void* ns) {
    }
    return NULL;
 }
-
-static void signal_handler(int signum) {
-   (void)signum;
-   puts("Interrupted!");
-   volume = vol_perc();
-   volume_sym = vol_sym(volume);
+static int ethereum(void) {
+   FILE* file = popen("curl " COINBASE_API, "r");
+   if (!file) error("failed to invoke curl");
+   float f;
+   if (fscanf(file, "{\"data\":{\"base\":\"ETH\",\"currency\":\"USD\",\"amount\":\"%f\"}}", &f) != 1)
+      error("failed to get money");
+   pclose(file);
+   return (int)f;
+}
+static void* update_ether(void* arg) {
+   int* val = (int*)arg;
+   while (1) {
+      *val = ethereum();
+      sleep(ether_delay);
+   }
+   return NULL;
 }
 
 #if HAVE_NVIDIA_GPU
@@ -218,6 +228,12 @@ static bool nvidia_gpu_usage(int* gpu, int* mem) {
    return true;
 }
 #endif
+static void signal_handler(int signum) {
+   (void)signum;
+   puts("Interrupted!");
+}
+
+
 
 int main(int argc, char* argv[]) {
    (void)argc;
@@ -225,7 +241,7 @@ int main(int argc, char* argv[]) {
    unsigned num_fails = 0;
    char buffer[256];
    signal(SIGUSR1, signal_handler);
-   signal(SIGHUP,  signal_handler);
+   signal(SIGHUP,  SIG_IGN);
 
    prog_name = strrchr(argv[0], '/');
    if (prog_name) ++prog_name;
@@ -236,10 +252,13 @@ int main(int argc, char* argv[]) {
 #endif
 
    const char* ns = net_sym();
-   pthread_t thr_net;
+   int ether = 0;
+   pthread_t thr_net, thr_ether;
    pthread_create(&thr_net, NULL, &update_ns, (void*)&ns);
+   pthread_create(&thr_ether, NULL, &update_ether, (void*)&ether);
    volume = vol_perc();
    volume_sym = vol_sym(volume);
+
    while (1) {
       const time_t now = time(NULL);
       const int bat = bat_perc();
@@ -251,8 +270,8 @@ int main(int argc, char* argv[]) {
                cpu_perc(), gpu_perc, gpu_mem, ram_perc(), volume_sym, volume, bat_sym(bat), bat, ns);
       } else
 #endif
-      n = (size_t)snprintf(buffer, sizeof(buffer), "[CPU \uf2db %d%%] [RAM \uf538 %d%%] [VOL %s %d%%] [BAT %s %d%%] %s ",
-            cpu_perc(), ram_perc(), volume_sym, volume, bat_sym(bat), bat, ns);
+      n = (size_t)snprintf(buffer, sizeof(buffer), "[CPU \uf2db %d%%] [RAM \uf538 %d%%] [VOL %s %d%%] [ETH  %d$] [BAT %s %d%%] %s ",
+            cpu_perc(), ram_perc(), volume_sym, volume, ether, bat_sym(bat), bat, ns);
       strftime(buffer + n, sizeof(buffer) - n, date_format, localtime(&now));
 
       if (xsetroot(buffer)) num_fails = 0;
@@ -260,6 +279,10 @@ int main(int argc, char* argv[]) {
          if (num_fails >= max_fails) return 1;
          else ++num_fails;
       }
+      //nanosleep(&sleep_time, NULL);
       nanosleep(&sleep_time, NULL);
+      volume = vol_perc();
+      volume_sym = vol_sym(volume);
+      
    }
 }

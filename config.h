@@ -16,4 +16,10 @@ const unsigned max_fails = 5;
 // date format (see date(1))
 const char* const date_format = "%a, %F %T";
 
+// coinbase API URL
+#define COINBASE_API "https://api.coinbase.com/v2/prices/ETH-USD/spot"
+
+// ethereum update delay (default: 300s/5min)
+const int ether_delay = 300;
+
 #endif /* DWM_STATUS_CONFIG_H */
