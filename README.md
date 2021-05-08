@@ -6,6 +6,7 @@ A custom status utility for the dynamic window manager.
 * dwm
 * xsetroot
 * NVIDIA Management Library (optional)
+* curl
 
 ## Configuration
 Configuring some parameters is supported through the classic config.h.
