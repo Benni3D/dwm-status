@@ -1,5 +1,5 @@
 CC ?= cc
-CFLAGS += -O3 -Wall -Wextra -pthread -D_XOPEN_SOURCE=700 -std=c99
+CFLAGS += -O3 -Wall -Wextra -pthread -D_XOPEN_SOURCE=700 -std=c99 -Wno-unused-function
 
 ifeq ($(NVIDIA_GPU),1)
 CFLAGS += -I/opt/cuda/include -DHAVE_NVIDIA_GPU=1

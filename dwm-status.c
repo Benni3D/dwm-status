@@ -13,12 +13,12 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <time.h>
+#include "config.h"
 
-#if HAVE_NVIDIA_GPU
+#if ENABLE_NVIDIA
 #include <nvml.h>
 #endif
 
-#include "config.h"
 
 static const char* prog_name;
 static int volume;
@@ -113,11 +113,6 @@ static int vol_perc(void) {
    pclose(file);
    return (left + right) / 2;
 }
-static int bat_perc(void) {
-   int perc;
-   if (pscanf("/sys/class/power_supply/" BAT_NAME "/capacity", "%d\n", &perc) != 1) return -1;
-   return perc;
-}
 static const char* vol_sym(int volume) {
    int muted;
    FILE* file = popen("pulsemixer --get-mute", "r");
@@ -131,6 +126,11 @@ static const char* vol_sym(int volume) {
    else if (volume < 25) return "";
    else if (volume < 50) return "";
    else return "";
+}
+static int bat_perc(void) {
+   int perc;
+   if (pscanf("/sys/class/power_supply/" BAT_NAME "/capacity", "%d\n", &perc) != 1) return -1;
+   return perc;
 }
 static const char* bat_sym(int bat) {
    char status[32];
@@ -185,7 +185,7 @@ static void* update_ether(void* arg) {
    return NULL;
 }
 
-#if HAVE_NVIDIA_GPU
+#if ENABLE_NVIDIA
 static nvmlDevice_t nvidia_gpu;
 static bool init_nvml(void) {
    nvmlReturn_t result;
@@ -228,61 +228,80 @@ static bool nvidia_gpu_usage(int* gpu, int* mem) {
    return true;
 }
 #endif
-static void signal_handler(int signum) {
-   (void)signum;
-   puts("Interrupted!");
+
+static void append(char* buf, const char* fmt, ...) {
+   va_list ap;
+   va_start(ap, fmt);
+   vsprintf(buf + strlen(buf), fmt, ap);
+   va_end(ap);
 }
-
-
 
 int main(int argc, char* argv[]) {
    (void)argc;
    const struct timespec sleep_time = { 0, (long)((long double)refresh_delay * 1000000000.0l) };
    unsigned num_fails = 0;
-   char buffer[256];
-   signal(SIGUSR1, signal_handler);
+   char buffer[256] = "";
+   //signal(SIGUSR1, signal_handler); TODO: fixme
    signal(SIGHUP,  SIG_IGN);
 
    prog_name = strrchr(argv[0], '/');
    if (prog_name) ++prog_name;
    else prog_name = __FILE__;
   
-#if HAVE_NVIDIA_GPU
+#if ENABLE_NVIDIA
    const bool has_gpu = init_nvml();
 #endif
 
+#if ENABLE_NET
    const char* ns = net_sym();
-   int ether = 0;
-   pthread_t thr_net, thr_ether;
+   pthread_t thr_net;
    pthread_create(&thr_net, NULL, &update_ns, (void*)&ns);
+#endif
+
+#if ENABLE_ETH
+   int ether = 0;
+   pthread_t thr_ether;
    pthread_create(&thr_ether, NULL, &update_ether, (void*)&ether);
+#endif
+
+#if ENABLE_VOLUME
    volume = vol_perc();
    volume_sym = vol_sym(volume);
+#endif
 
    while (1) {
+      buffer[0] = '\0';
       const time_t now = time(NULL);
-      const int bat = bat_perc();
-      size_t n;
-#if HAVE_NVIDIA_GPU
+      append(buffer, "[CPU \uf2db %d%%]", cpu_perc());
+#if ENABLE_NVIDIA
       int gpu_perc, gpu_mem;
-      if (has_gpu && nvidia_gpu_usage(&gpu_perc, &gpu_mem)) {
-         n = (size_t)snprintf(buffer, sizeof(buffer), "[CPU \uf2db %d%%] [GPU \uf2db %d%%/%d%%] [RAM \uf538 %d%%] [VOL %s %d%%] [BAT %s %d%%] %s ",
-               cpu_perc(), gpu_perc, gpu_mem, ram_perc(), volume_sym, volume, bat_sym(bat), bat, ns);
-      } else
+      if (has_gpu && nvidia_gpu_usage(&gpu_perc, &gpu_mem))
+         append(buffer, " [GPU \uf2db %d%%/%d%%]", gpu_perc, gpu_mem);
 #endif
-      n = (size_t)snprintf(buffer, sizeof(buffer), "[CPU \uf2db %d%%] [RAM \uf538 %d%%] [VOL %s %d%%] [ETH  %d$] [BAT %s %d%%] %s ",
-            cpu_perc(), ram_perc(), volume_sym, volume, ether, bat_sym(bat), bat, ns);
-      strftime(buffer + n, sizeof(buffer) - n, date_format, localtime(&now));
+      append(buffer, " [RAM \uf538 %d%%]", ram_perc());
+#if ENABLE_VOLUME
+      append(buffer, " [VOL %s %d%%]", volume_sym, volume);
+#endif
+#if ENABLE_ETH
+      append(buffer, " [ETH  $%d]", ether);
+#endif
+#if ENABLE_BAT
+      const int bat = bat_perc();
+      append(buffer, " [BAT %s %d%%]", bat_sym(bat), bat);
+#endif
+#if ENABLE_NET
+      append(buffer, " %s", ns);
+#endif
+
+      strftime(buffer + strlen(buffer), -1, date_format, localtime(&now));
 
       if (xsetroot(buffer)) num_fails = 0;
       else {
          if (num_fails >= max_fails) return 1;
          else ++num_fails;
       }
-      //nanosleep(&sleep_time, NULL);
       nanosleep(&sleep_time, NULL);
       volume = vol_perc();
       volume_sym = vol_sym(volume);
-      
    }
 }
