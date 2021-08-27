@@ -27,5 +27,6 @@ const int ether_delay = 300;
 #define ENABLE_NVIDIA   1 && HAVE_NVIDIA_GPU
 #define ENABLE_VOLUME   1
 #define ENABLE_NET      1
+#define ENABLE_BAT      1
 
 #endif /* DWM_STATUS_CONFIG_H */
