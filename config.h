@@ -23,7 +23,7 @@ const char* const date_format = " %a, %F %T";
 const int ether_delay = 300;
 
 // enable switches
-#define ENABLE_ETH      1
+#define ENABLE_ETH      0
 #define ENABLE_NVIDIA   1 && HAVE_NVIDIA_GPU
 #define ENABLE_VOLUME   1
 #define ENABLE_NET      1

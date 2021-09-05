@@ -1,6 +1,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
+#include <X11/Xlib.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdarg.h>
@@ -23,6 +24,8 @@
 static const char* prog_name;
 static int volume;
 static const char* volume_sym;
+static Display* dpy;
+static Window win;
 
 static void error(const char* msg, ...) {
    va_list ap;
@@ -33,27 +36,6 @@ static void error(const char* msg, ...) {
    fprintf(stderr, ": %s\n", strerror(errno));
 
    va_end(ap);
-}
-
-static bool xsetroot(const char* s) {
-   pid_t pid = fork();
-   if (pid < 0) {
-      error("failed to fork() for xsetroot");
-      exit(1);
-   }
-   if (pid == 0) {
-      execlp("xsetroot", "xsetroot", "-name", s, NULL);
-      error("failed to invoke xsetroot");
-      _exit(1);
-   } else {
-      int wstatus;
-      waitpid(pid, &wstatus, 0);
-      if (!WIFEXITED(wstatus) || wstatus != 0) {
-         error("xsetroot failed");
-         return false;
-      }
-      return true;
-   }
 }
 
 static long double vldsum(size_t num, long double a[]) {
@@ -244,6 +226,12 @@ int main(int argc, char* argv[]) {
    //signal(SIGUSR1, signal_handler); TODO: fixme
    signal(SIGHUP,  SIG_IGN);
 
+   dpy = XOpenDisplay(getenv("DISPLAY"));
+   if (!dpy)
+      error("cannot open display '%s'", getenv("DISPLAY"));
+
+   win = DefaultRootWindow(dpy);
+
    prog_name = strrchr(argv[0], '/');
    if (prog_name) ++prog_name;
    else prog_name = __FILE__;
@@ -295,10 +283,13 @@ int main(int argc, char* argv[]) {
 
       strftime(buffer + strlen(buffer), -1, date_format, localtime(&now));
 
-      if (xsetroot(buffer)) num_fails = 0;
-      else {
-         if (num_fails >= max_fails) return 1;
-         else ++num_fails;
+      if (XStoreName(dpy, win, buffer)) {
+         XFlush(dpy);
+         num_fails = 0;
+      } else {
+         if (num_fails < max_fails)
+            ++num_fails;
+         else return 1;
       }
       nanosleep(&sleep_time, NULL);
       volume = vol_perc();
